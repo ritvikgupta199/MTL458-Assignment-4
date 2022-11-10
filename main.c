@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <assert.h>
 
 typedef struct {char dir; int train_id;} thread_args;
 
@@ -24,7 +25,7 @@ volatile int phantom_count[4] = {0, 0, 0, 0};
 pthread_t train_threads[100];
 
 char* id_to_dir(int id) {
-    char* dir[4] = {"North", "West", "East", "South"};
+    char* dir[4] = {"North", "West", "South", "East"};
     return dir[id];
 }
 
@@ -38,21 +39,22 @@ void arriveLane(int inter_id, int train_id) {
     pthread_mutex_unlock(&lock[inter_id]);
 }
 
-int crossLane(int inter_id, int train_id) {
-    pthread_mutex_lock(&lock[inter_id]);
-    while (inter[inter_id] != -1) {
-        pthread_cond_wait(&cond[inter_id], &lock[inter_id]);
+int crossLane(int inter_id1, int inter_id2, int train_id) {
+    pthread_mutex_lock(&lock[inter_id2]);
+    while (inter[inter_id2] != -1) {
+        pthread_cond_wait(&cond[inter_id2], &lock[inter_id2]);
     }
     pthread_mutex_lock(&deadlock);
     int is_phantom = 0;
-    if (phantom_count[train_id] > 0) {
-        phantom_count[train_id]--;
+    if (phantom_count[inter_id1] > 0) {
+        phantom_count[inter_id1]--;
         is_phantom = 1;
+        pthread_cond_broadcast(&cond[inter_id2]);
     } else {
-        inter[inter_id] = train_id;
+        inter[inter_id2] = train_id;
     }
     pthread_mutex_unlock(&deadlock);
-    pthread_mutex_unlock(&lock[inter_id]);
+    pthread_mutex_unlock(&lock[inter_id2]);
     usleep(1000 * thread_safe_rng(500, 1000)); // take 500-1000 ms to cross the lane
     return is_phantom;
 }
@@ -90,7 +92,7 @@ void trainThreadFunction(void* arg) {
     printf("Train Arrived at the lane from the %s direction\n", direction);
 
     int inter_id2 = (inter_id + 1) % 4;
-    int is_phantom = crossLane(inter_id2, train_id);
+    int is_phantom = crossLane(inter_id, inter_id2, train_id);
     if (!is_phantom){
         printf("Train Exited the lane from the %s direction\n", direction);
         exitLane(inter_id, inter_id2);
@@ -121,13 +123,13 @@ void deadLockResolverThreadFunction(void * arg) {
         if (deadLockDetected) {
             printf("Deadlock detected. Resolving deadlock...\n");
             pthread_mutex_lock(&deadlock);
-            pthread_mutex_lock(&lock[0]);
             int random_id = thread_safe_rng(0, 4);
+            pthread_mutex_lock(&lock[random_id]);
             inter[random_id] = -1;
             phantom_count[random_id]++;
             printf("Train Exited the lane from the %s direction\n", id_to_dir(random_id));
-            pthread_cond_signal(&cond[0]);
-            pthread_mutex_unlock(&lock[0]);
+            pthread_cond_signal(&cond[random_id]);
+            pthread_mutex_unlock(&lock[random_id]);
             pthread_mutex_unlock(&deadlock);
         }
         usleep(1000 * 500); // sleep for 500 ms
@@ -175,6 +177,5 @@ int main(int argc, char *argv[]) {
     for (int i = 0; i < num_trains; i++) {
         pthread_join(train_threads[i], NULL);
     }
-    printf("hello");
     return 0;
 }
