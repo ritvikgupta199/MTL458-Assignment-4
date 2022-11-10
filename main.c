@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <pthread.h>
-#include <assert.h>
 
 typedef struct {char dir; int train_id;} thread_args;
 
@@ -22,7 +21,7 @@ pthread_cond_t  cond[4];
 volatile int inter[4] = {-1, -1, -1, -1};
 pthread_mutex_t deadlock;
 volatile int phantom_count[4] = {0, 0, 0, 0};
-pthread_t train_threads[100];
+pthread_t train_threads[5000100];
 
 char* id_to_dir(int id) {
     char* dir[4] = {"North", "West", "South", "East"};

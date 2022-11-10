@@ -8,6 +8,7 @@
 *.elf
 
 main
+.DS_Store
 
 # Linker output
 *.ilk
