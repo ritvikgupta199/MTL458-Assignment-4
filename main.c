@@ -34,7 +34,7 @@ void arriveLane(int inter_id, int train_id) {
     while (inter[inter_id] != -1) {
         pthread_cond_wait(&cond[inter_id], &lock[inter_id]);
     }
-    inter[inter_id] = train_id;
+    inter[inter_id] = inter_id;
     pthread_mutex_unlock(&lock[inter_id]);
 }
 
@@ -50,7 +50,7 @@ int crossLane(int inter_id1, int inter_id2, int train_id) {
         is_phantom = 1;
         pthread_cond_broadcast(&cond[inter_id2]);
     } else {
-        inter[inter_id2] = train_id;
+        inter[inter_id2] = inter_id1;
     }
     pthread_mutex_unlock(&deadlock);
     pthread_mutex_unlock(&lock[inter_id2]);
